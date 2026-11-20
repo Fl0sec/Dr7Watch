@@ -35,7 +35,7 @@ context that a debugger stepping through code does not produce.
 
 ## Results
 
-Windows 11 x64, `ntdll` `10.0.26100.8115`, each program run under `dr7watch.exe`
+Windows 11 x64, `ntdll` `10.0.26100.8246`, each program run under `dr7watch.exe`
 by [`tests/run-matrix.ps1`](tests/run-matrix.ps1):
 
 | Program | ARM | REDIRECT | SSN | RETURN | Program still works |
@@ -63,6 +63,26 @@ The harnesses in [`tests/harness`](tests/harness) call one harmless query
 HWSyscalls and LayeredSyscall are not redistributed: the build script clones
 them at a pinned commit.
 
+## Kernel view
+
+[`etw/syscall_trace.c`](etw/syscall_trace.c) records `SysCallEnter` events with
+user stacks for one program, in a private system-logger session that leaves the
+shared NT Kernel Logger alone. [`etw/stacks.py`](etw/stacks.py) resolves the
+frames from an `xperf -a dumper` file.
+
+```powershell
+powershell -File etw\capture.ps1          # elevated
+xperf -i tests\results\etw\pivotgate.etl -o pivotgate.txt -a dumper
+python etw\stacks.py pivotgate.txt pivotgate_poc.exe NtWriteFile
+```
+
+What the kernel recorded for the same three runs:
+
+| Program | Frame under the syscall | What it shows |
+|---|---|---|
+| PivotGate | `KernelBase!WriteFile+0x8d` | A normal `WriteFile`. Nothing to separate it from a real one. |
+| HWSyscalls | `kernel32!GetLogicalDrives+0x45` | The gadget at `kernel32+0xe295`, named after the nearest export. |
+| LayeredSyscall | `ntdll` internals under `MessageBoxW` | Real return addresses, borrowed from an unrelated call chain. |
 ## Build and run
 
 Visual Studio 2022 or later with the C++ tools, from an x64 Native Tools
