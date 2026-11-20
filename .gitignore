@@ -1,0 +1,6 @@
+build/
+tests/build/
+tests/third_party/
+tests/results/
+*.obj
+*.pdb
